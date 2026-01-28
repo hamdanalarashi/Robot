@@ -8,6 +8,7 @@ Verwaltet DepthAI Pipeline für Stereo-Vision und Spatial AI
 import depthai as dai
 import cv2
 import numpy as np
+import traceback
 from typing import Optional, Tuple, List
 import config
 
