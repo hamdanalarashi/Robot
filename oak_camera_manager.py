@@ -67,14 +67,13 @@ class OAKDCameraManager:
         pipeline = dai.Pipeline()
         
         # Bestimme ob alte oder neue API
-        try:
-            # Versuche neue API (dai.node.*)
+        use_new_api = hasattr(dai, 'node')
+        
+        # === Color Camera ===
+        if use_new_api:
             cam_rgb = pipeline.create(dai.node.ColorCamera)
-            use_new_api = True
-        except AttributeError:
-            # Alte API (dai.*)
+        else:
             cam_rgb = pipeline.createColorCamera()
-            use_new_api = False
         
         # === Color Camera ===
         if use_new_api:
