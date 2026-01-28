@@ -66,8 +66,8 @@ class OAKDCameraManager:
         """
         pipeline = dai.Pipeline()
         
-        # Bestimme ob alte oder neue API
-        use_new_api = hasattr(dai, 'node')
+        # Bestimme ob alte oder neue API (prüfe spezifisch auf XLinkOut)
+        use_new_api = hasattr(dai, 'node') and hasattr(dai.node, 'XLinkOut')
         
         # === Color Camera ===
         if use_new_api:
