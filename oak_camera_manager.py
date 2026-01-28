@@ -90,14 +90,7 @@ class OAKDCameraManager:
         mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
         mono_right.setCamera("right")
         
-        # Stereo Depth Konfiguration (kompatibel mit älteren DepthAI Versionen)
-        try:
-            # Neuere Versionen
-            stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
-        except AttributeError:
-            # Ältere Versionen - verwende deprecated Methode
-            stereo.setPresetMode(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
-        
+        # Stereo Depth Konfiguration (verwende Defaults für Kompatibilität)
         stereo.setLeftRightCheck(True)
         stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)  # Align to RGB
         
