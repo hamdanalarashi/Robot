@@ -31,9 +31,8 @@ VIDEO_HEIGHT = 480
 FPS_TARGET = 30
 
 # === OAK-D Lite Einstellungen ===
-# HINWEIS: Aktuell deaktiviert wegen DepthAI API-Problemen auf Raspberry Pi
-# Das System nutzt stattdessen Standard-Webcam mit OpenCV Face Detection
-USE_OAK_D = False  # OAK-D Lite deaktiviert - nutze Webcam
+# Jetzt mit korrekter DepthAI 3.3.0 API!
+USE_OAK_D = True  # OAK-D Lite aktiviert
 OAK_D_RESOLUTION = "1080p"  # "1080p", "4K", "720p"
 OAK_D_FPS = 30  # Target FPS
 

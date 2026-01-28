@@ -58,25 +58,22 @@ class OAKDCameraManager:
     def _create_pipeline(self) -> dai.Pipeline:
         """
         Erstellt DepthAI Pipeline für RGB + Depth
-        Für DepthAI 3.3.0 API
+        Für DepthAI 3.3.0 (Camera node + createXLinkOut method)
         
         Returns:
             Konfigurierte Pipeline
         """
         pipeline = dai.Pipeline()
         
-        # === Color Camera ===
-        camRgb = pipeline.create(dai.node.ColorCamera)
-        camRgb.setPreviewSize(640, 480)
-        camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        camRgb.setInterleaved(False)
-        camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-        camRgb.setFps(config.OAK_D_FPS)
+        # === Camera (new node, replaces deprecated ColorCamera) ===
+        cam = pipeline.create(dai.node.Camera)
+        cam.setPreviewSize(640, 480)
+        cam.setFps(config.OAK_D_FPS)
         
-        # === XLink Output für RGB ===
-        xoutRgb = pipeline.create(dai.node.XLinkOut)
+        # === XLink Output für RGB (method, not a node!) ===
+        xoutRgb = pipeline.createXLinkOut()
         xoutRgb.setStreamName("rgb")
-        camRgb.preview.link(xoutRgb.input)
+        cam.preview.link(xoutRgb.input)
         
         # === Stereo Depth (optional) ===
         if config.DEPTH_ENABLED:
@@ -90,7 +87,7 @@ class OAKDCameraManager:
             monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
             monoRight.setCamera("right")
             
-            # Stereo Configuration (simplified for 3.x)
+            # Stereo Configuration
             stereo.setLeftRightCheck(True)
             stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
             
@@ -98,7 +95,7 @@ class OAKDCameraManager:
             monoLeft.out.link(stereo.left)
             monoRight.out.link(stereo.right)
             
-            xoutDepth = pipeline.create(dai.node.XLinkOut)
+            xoutDepth = pipeline.createXLinkOut()
             xoutDepth.setStreamName("depth")
             stereo.depth.link(xoutDepth.input)
         
