@@ -18,17 +18,22 @@ pipeline = dai.Pipeline()
 cam = pipeline.create(dai.node.Camera)
 print("✓ Camera node created")
 
-# Start pipeline (replaces dai.Device(pipeline))
-pipeline.start()
-print("✓ Pipeline started")
+# Build pipeline FIRST (before requesting outputs!)
+pipeline.build()
+print("✓ Pipeline built")
 
-# Request output with automatic XLink creation!
+# NOW request output (after build)
 video_output = cam.requestOutput(size=(640, 480), type=dai.ImgFrame.Type.BGR888p)
 print(f"✓ Video output created: {video_output}")
+
+# Start pipeline
+pipeline.start()
+print("✓ Pipeline started")
 
 # Create output queue (this creates the XLink automatically!)
 video_queue = video_output.createOutputQueue(maxSize=4, blocking=False)
 print(f"✓ Output queue created: {video_queue}")
+
 
 print("\n" + "="*60)
 print("Streaming video - press 'q' to quit")
