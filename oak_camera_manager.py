@@ -58,7 +58,7 @@ class OAKDCameraManager:
     def _create_pipeline(self) -> dai.Pipeline:
         """
         Erstellt DepthAI Pipeline für RGB + Depth
-        Basiert auf funktionierendem PIB Robot Code
+        Für DepthAI 3.3.0 API
         
         Returns:
             Konfigurierte Pipeline
@@ -66,39 +66,39 @@ class OAKDCameraManager:
         pipeline = dai.Pipeline()
         
         # === Color Camera ===
-        camRgb = pipeline.createColorCamera()
+        camRgb = pipeline.create(dai.node.ColorCamera)
         camRgb.setPreviewSize(640, 480)
         camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
         camRgb.setInterleaved(False)
         camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
         camRgb.setFps(config.OAK_D_FPS)
         
-        # === Stereo Depth ===
-        monoLeft = pipeline.createMonoCamera()
-        monoRight = pipeline.createMonoCamera()
-        stereo = pipeline.createStereoDepth()
-        
-        monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-        monoLeft.setBoardSocket(dai.CameraBoardSocket.LEFT)
-        
-        monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-        monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
-        
-        # Stereo Configuration
-        stereo.setLeftRightCheck(True)
-        stereo.setDepthAlign(dai.CameraBoardSocket.RGB)
-        
-        # Linking
-        monoLeft.out.link(stereo.left)
-        monoRight.out.link(stereo.right)
-        
-        # === XLink Outputs ===
-        xoutRgb = pipeline.createXLinkOut()
+        # === XLink Output für RGB ===
+        xoutRgb = pipeline.create(dai.node.XLinkOut)
         xoutRgb.setStreamName("rgb")
         camRgb.preview.link(xoutRgb.input)
         
+        # === Stereo Depth (optional) ===
         if config.DEPTH_ENABLED:
-            xoutDepth = pipeline.createXLinkOut()
+            monoLeft = pipeline.create(dai.node.MonoCamera)
+            monoRight = pipeline.create(dai.node.MonoCamera)
+            stereo = pipeline.create(dai.node.StereoDepth)
+            
+            monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+            monoLeft.setCamera("left")
+            
+            monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+            monoRight.setCamera("right")
+            
+            # Stereo Configuration (simplified for 3.x)
+            stereo.setLeftRightCheck(True)
+            stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
+            
+            # Linking
+            monoLeft.out.link(stereo.left)
+            monoRight.out.link(stereo.right)
+            
+            xoutDepth = pipeline.create(dai.node.XLinkOut)
             xoutDepth.setStreamName("depth")
             stereo.depth.link(xoutDepth.input)
         
