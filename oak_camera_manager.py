@@ -58,22 +58,22 @@ class OAKDCameraManager:
     def _create_pipeline(self) -> dai.Pipeline:
         """
         Erstellt DepthAI Pipeline für RGB + Depth
-        Für DepthAI 3.3.0 (Camera node + createXLinkOut method)
+        Für DepthAI 3.3.0 - minimale funktionierende Konfiguration
         
         Returns:
             Konfigurierte Pipeline
         """
         pipeline = dai.Pipeline()
         
-        # === Camera (new node, replaces deprecated ColorCamera) ===
+        # === Camera (new node in 3.3.0) ===
         cam = pipeline.create(dai.node.Camera)
-        cam.setPreviewSize(640, 480)
         cam.setFps(config.OAK_D_FPS)
         
-        # === XLink Output für RGB (method, not a node!) ===
+        # === XLink Output für RGB ===
         xoutRgb = pipeline.createXLinkOut()
         xoutRgb.setStreamName("rgb")
-        cam.preview.link(xoutRgb.input)
+        # Use video output instead of preview
+        cam.video.link(xoutRgb.input)
         
         # === Stereo Depth (optional) ===
         if config.DEPTH_ENABLED:
