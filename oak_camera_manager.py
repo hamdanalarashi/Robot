@@ -58,46 +58,20 @@ class OAKDCameraManager:
     def _create_pipeline(self) -> dai.Pipeline:
         """
         Erstellt DepthAI Pipeline für RGB + Depth
-        Für DepthAI 3.3.0 - minimale funktionierende Konfiguration
+        Für DepthAI 3.3.0 - ABSOLUTE MINIMAL CONFIGURATION
         
         Returns:
             Konfigurierte Pipeline
         """
         pipeline = dai.Pipeline()
         
-        # === Camera (new node in 3.3.0) ===
+        # === Camera - NO CONFIGURATION (default settings) ===
         cam = pipeline.create(dai.node.Camera)
-        cam.setFps(config.OAK_D_FPS)
         
         # === XLink Output für RGB ===
         xoutRgb = pipeline.createXLinkOut()
         xoutRgb.setStreamName("rgb")
-        # Use video output instead of preview
         cam.video.link(xoutRgb.input)
-        
-        # === Stereo Depth (optional) ===
-        if config.DEPTH_ENABLED:
-            monoLeft = pipeline.create(dai.node.MonoCamera)
-            monoRight = pipeline.create(dai.node.MonoCamera)
-            stereo = pipeline.create(dai.node.StereoDepth)
-            
-            monoLeft.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-            monoLeft.setCamera("left")
-            
-            monoRight.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-            monoRight.setCamera("right")
-            
-            # Stereo Configuration
-            stereo.setLeftRightCheck(True)
-            stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
-            
-            # Linking
-            monoLeft.out.link(stereo.left)
-            monoRight.out.link(stereo.right)
-            
-            xoutDepth = pipeline.createXLinkOut()
-            xoutDepth.setStreamName("depth")
-            stereo.depth.link(xoutDepth.input)
         
         return pipeline
     
