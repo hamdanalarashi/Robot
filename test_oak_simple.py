@@ -15,13 +15,18 @@ pipeline = dai.Pipeline()
 cam = pipeline.create(dai.node.Camera)
 print("✓ Camera created")
 
-# Request video output from camera (returns Output object)
+# Build pipeline FIRST
+pipeline.build()
+print("✓ Pipeline built")
+
+# NOW request video output from camera (returns Output object)
 output = cam.requestOutput(size=(640, 480), type=dai.ImgFrame.Type.BGR888p, fps=30.0)
 print(f"✓ Video output requested: {output}")
 
 # Check what we got
 print(f"  Output type: {type(output)}")
 print(f"  Output attributes: {[a for a in dir(output) if not a.startswith('_')]}")
+
 
 
 print("\n" + "="*50)
