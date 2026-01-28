@@ -59,108 +59,158 @@ class OAKDCameraManager:
     def _create_pipeline(self) -> dai.Pipeline:
         """
         Erstellt DepthAI Pipeline für RGB + Depth
-        Kompatibel mit älteren und neueren DepthAI Versionen
+        Unterstützt sehr alte DepthAI Versionen
         
         Returns:
             Konfigurierte Pipeline
         """
         pipeline = dai.Pipeline()
         
-        # Bestimme ob alte oder neue API (prüfe spezifisch auf XLinkOut)
+        # Prüfe API-Version durch Testen verschiedener Methoden
         use_new_api = hasattr(dai, 'node') and hasattr(dai.node, 'XLinkOut')
         
-        # === Color Camera ===
-        if use_new_api:
-            cam_rgb = pipeline.create(dai.node.ColorCamera)
-        else:
-            cam_rgb = pipeline.createColorCamera()
-        
-        # === Color Camera ===
-        if use_new_api:
-            # Neue API
-            resolution_map = {
-                "1080p": dai.ColorCameraProperties.SensorResolution.THE_1080_P,
-                "4K": dai.ColorCameraProperties.SensorResolution.THE_4_K,
-                "720p": dai.ColorCameraProperties.SensorResolution.THE_720_P,
-            }
-            cam_rgb.setResolution(resolution_map.get(config.OAK_D_RESOLUTION, 
-                                                       resolution_map["1080p"]))
-            cam_rgb.setInterleaved(False)
-            cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-            cam_rgb.setFps(config.OAK_D_FPS)
-        else:
-            # Alte API - einfachere Konfiguration
-            cam_rgb.setPreviewSize(640, 480)
-            cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-            cam_rgb.setInterleaved(False)
-            cam_rgb.setBoardSocket(dai.CameraBoardSocket.RGB)
-            cam_rgb.setFps(config.OAK_D_FPS)
-        
-        # === Stereo Depth ===
-        if use_new_api:
-            mono_left = pipeline.create(dai.node.MonoCamera)
-            mono_right = pipeline.create(dai.node.MonoCamera)
-            stereo = pipeline.create(dai.node.StereoDepth)
-        else:
-            mono_left = pipeline.createMonoCamera()
-            mono_right = pipeline.createMonoCamera()
-            stereo = pipeline.createStereoDepth()
-        
-        mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-        if use_new_api:
-            mono_left.setCamera("left")
-        else:
-            mono_left.setBoardSocket(dai.CameraBoardSocket.LEFT)
-        
-        mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
-        if use_new_api:
-            mono_right.setCamera("right")
-        else:
-            mono_right.setBoardSocket(dai.CameraBoardSocket.RIGHT)
-        
-        # Stereo Depth Konfiguration
-        stereo.setLeftRightCheck(True)
-        if use_new_api:
-            stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
-        
-        # Median Filter (falls unterstützt)
-        if config.DEPTH_ENABLED:
-            try:
-                median_map = {
-                    "KERNEL_3x3": dai.MedianFilter.KERNEL_3x3,
-                    "KERNEL_5x5": dai.MedianFilter.KERNEL_5x5,
-                    "KERNEL_7x7": dai.MedianFilter.KERNEL_7x7,
-                }
-                stereo.initialConfig.setMedianFilter(
-                    median_map.get(config.DEPTH_MEDIAN_FILTER, dai.MedianFilter.KERNEL_7x7)
-                )
-            except:
-                pass  # Alte Versionen unterstützen dies möglicherweise nicht
-        
-        # Links
-        mono_left.out.link(stereo.left)
-        mono_right.out.link(stereo.right)
-        
-        # === XLink Outputs ===
-        if use_new_api:
-            xout_rgb = pipeline.create(dai.node.XLinkOut)
-        else:
-            xout_rgb = pipeline.createXLinkOut()
-        
-        xout_rgb.setStreamName("rgb")
-        cam_rgb.preview.link(xout_rgb.input)
-        
-        # Depth Output  
-        if config.DEPTH_ENABLED:
-            if use_new_api:
-                xout_depth = pipeline.create(dai.node.XLinkOut)
+        try:
+            # === Sehr alte API: Direkte Node-Instanziierung ===
+            if not use_new_api:
+                # ColorCamera
+                cam_rgb = dai.ColorCamera()
+                cam_rgb.setPreviewSize(640, 480)
+                cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+                cam_rgb.setInterleaved(False)
+                cam_rgb.setBoardSocket(dai.CameraBoardSocket.RGB)
+                cam_rgb.setFps(config.OAK_D_FPS)
+                
+                # MonoCameras für Stereo
+                mono_left = dai.MonoCamera()
+                mono_left.setBoardSocket(dai.CameraBoardSocket.LEFT)
+                mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+                
+                mono_right = dai.MonoCamera()
+                mono_right.setBoardSocket(dai.CameraBoardSocket.RIGHT)
+                mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+                
+                # StereoDepth
+                stereo = dai.StereoDepth()
+                stereo.setOutputDepth(True)
+                stereo.setOutputRectified(False)
+                stereo.setConfidenceThreshold(200)
+                stereo.setLeftRightCheck(True)
+                
+                # XLinkOut
+                xout_rgb = dai.XLinkOut()
+                xout_rgb.setStreamName("rgb")
+                
+                xout_depth = dai.XLinkOut()
+                xout_depth.setStreamName("depth")
+                
+                # Verbindungen (alte API)
+                cam_rgb.preview.link(xout_rgb.input)
+                mono_left.out.link(stereo.left)
+                mono_right.out.link(stereo.right)
+                stereo.depth.link(xout_depth.input)
+                
+                # Nodes zur Pipeline hinzufügen
+                pipeline.addNode(cam_rgb)
+                pipeline.addNode(mono_left)
+                pipeline.addNode(mono_right)
+                pipeline.addNode(stereo)
+                pipeline.addNode(xout_rgb)
+                if config.DEPTH_ENABLED:
+                    pipeline.addNode(xout_depth)
+                
             else:
-                xout_depth = pipeline.createXLinkOut()
+                # Neuere API (pipeline.createX() oder pipeline.create(dai.node.X))
+                # === Color Camera ===
+                if hasattr(dai, 'node') and hasattr(dai.node, 'ColorCamera'): # Check for dai.node.ColorCamera
+                    cam_rgb = pipeline.create(dai.node.ColorCamera)
+                    resolution_map = {
+                        "1080p": dai.ColorCameraProperties.SensorResolution.THE_1080_P,
+                        "4K": dai.ColorCameraProperties.SensorResolution.THE_4_K,
+                        "720p": dai.ColorCameraProperties.SensorResolution.THE_720_P,
+                    }
+                    cam_rgb.setResolution(resolution_map.get(config.OAK_D_RESOLUTION, 
+                                                               resolution_map["1080p"]))
+                    cam_rgb.setInterleaved(False)
+                    cam_rgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
+                    cam_rgb.setFps(config.OAK_D_FPS)
+                else: # Fallback to pipeline.createColorCamera()
+                    cam_rgb = pipeline.createColorCamera()
+                    cam_rgb.setPreviewSize(640, 480)
+                    cam_rgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
+                    cam_rgb.setInterleaved(False)
+                    cam_rgb.setBoardSocket(dai.CameraBoardSocket.RGB)
+                    cam_rgb.setFps(config.OAK_D_FPS)
+                
+                # === Stereo Depth ===
+                if hasattr(dai, 'node') and hasattr(dai.node, 'MonoCamera'): # Check for dai.node.MonoCamera
+                    mono_left = pipeline.create(dai.node.MonoCamera)
+                    mono_right = pipeline.create(dai.node.MonoCamera)
+                    stereo = pipeline.create(dai.node.StereoDepth)
+                else: # Fallback to pipeline.createMonoCamera()
+                    mono_left = pipeline.createMonoCamera()
+                    mono_right = pipeline.createMonoCamera()
+                    stereo = pipeline.createStereoDepth()
+                
+                mono_left.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+                if hasattr(dai, 'node') and hasattr(dai.node, 'MonoCamera'): # Check for dai.node.MonoCamera
+                    mono_left.setCamera("left")
+                else:
+                    mono_left.setBoardSocket(dai.CameraBoardSocket.LEFT)
+                
+                mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
+                if hasattr(dai, 'node') and hasattr(dai.node, 'MonoCamera'): # Check for dai.node.MonoCamera
+                    mono_right.setCamera("right")
+                else:
+                    mono_right.setBoardSocket(dai.CameraBoardSocket.RIGHT)
+                
+                # Stereo Depth Konfiguration
+                stereo.setLeftRightCheck(True)
+                if hasattr(dai, 'node') and hasattr(dai.node, 'StereoDepth'): # Check for dai.node.StereoDepth
+                    stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)
+                
+                # Median Filter (falls unterstützt)
+                if config.DEPTH_ENABLED:
+                    try:
+                        median_map = {
+                            "KERNEL_3x3": dai.MedianFilter.KERNEL_3x3,
+                            "KERNEL_5x5": dai.MedianFilter.KERNEL_5x5,
+                            "KERNEL_7x7": dai.MedianFilter.KERNEL_7x7,
+                        }
+                        stereo.initialConfig.setMedianFilter(
+                            median_map.get(config.DEPTH_MEDIAN_FILTER, dai.MedianFilter.KERNEL_7x7)
+                        )
+                    except:
+                        pass  # Alte Versionen unterstützen dies möglicherweise nicht
+                
+                # Links
+                mono_left.out.link(stereo.left)
+                mono_right.out.link(stereo.right)
+                
+                # === XLink Outputs ===
+                if hasattr(dai, 'node') and hasattr(dai.node, 'XLinkOut'): # Check for dai.node.XLinkOut
+                    xout_rgb = pipeline.create(dai.node.XLinkOut)
+                else:
+                    xout_rgb = pipeline.createXLinkOut()
+                
+                xout_rgb.setStreamName("rgb")
+                cam_rgb.preview.link(xout_rgb.input)
+                
+                # Depth Output  
+                if config.DEPTH_ENABLED:
+                    if hasattr(dai, 'node') and hasattr(dai.node, 'XLinkOut'): # Check for dai.node.XLinkOut
+                        xout_depth = pipeline.create(dai.node.XLinkOut)
+                    else:
+                        xout_depth = pipeline.createXLinkOut()
+                    
+                    xout_depth.setStreamName("depth")
+                    stereo.depth.link(xout_depth.input)
             
-            xout_depth.setStreamName("depth")
-            stereo.depth.link(xout_depth.input)
-        
-        return pipeline
+            return pipeline
+            
+        except Exception as e:
+            print(f"⚠️  Pipeline-Erstellung fehlgeschlagen: {e}")
+            traceback.print_exc()
+            raise
     
     def open(self) -> bool:
         """
