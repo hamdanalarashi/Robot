@@ -89,7 +89,14 @@ class OAKDCameraManager:
         mono_right.setResolution(dai.MonoCameraProperties.SensorResolution.THE_400_P)
         mono_right.setCamera("right")
         
-        stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+        # Stereo Depth Konfiguration (kompatibel mit älteren DepthAI Versionen)
+        try:
+            # Neuere Versionen
+            stereo.setDefaultProfilePreset(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+        except AttributeError:
+            # Ältere Versionen - verwende deprecated Methode
+            stereo.setPresetMode(dai.node.StereoDepth.PresetMode.HIGH_DENSITY)
+        
         stereo.setLeftRightCheck(True)
         stereo.setDepthAlign(dai.CameraBoardSocket.CAM_A)  # Align to RGB
         
@@ -107,48 +114,19 @@ class OAKDCameraManager:
         mono_left.out.link(stereo.left)
         mono_right.out.link(stereo.right)
         
-        # === Face Detection Network ===
-        detection_nn = pipeline.create(dai.node.MobileNetSpatialDetectionNetwork)
-        detection_nn.setBlobPath(self._get_model_path())
-        detection_nn.setConfidenceThreshold(config.SPATIAL_CONFIDENCE_THRESHOLD)
-        detection_nn.input.setBlocking(False)
-        detection_nn.setBoundingBoxScaleFactor(0.5)
-        detection_nn.setDepthLowerThreshold(100)
-        detection_nn.setDepthUpperThreshold(10000)
-        
-        # Spatial Location Calculator Config
-        spatial_config = dai.SpatialLocationCalculatorConfigData()
-        spatial_config.depthThresholds.lowerThreshold = 100
-        spatial_config.depthThresholds.upperThreshold = 10000
-        detection_nn.initialConfig.setBoundingBoxScaleFactor(0.5)
-        
-        cam_rgb.preview.link(detection_nn.input)
-        stereo.depth.link(detection_nn.inputDepth)
-        
         # === XLink Outputs ===
+        # RGB Output
         xout_rgb = pipeline.create(dai.node.XLinkOut)
         xout_rgb.setStreamName("rgb")
         cam_rgb.preview.link(xout_rgb.input)
         
-        xout_depth = pipeline.create(dai.node.XLinkOut)
-        xout_depth.setStreamName("depth")
-        stereo.depth.link(xout_depth.input)
-        
-        xout_nn = pipeline.create(dai.node.XLinkOut)
-        xout_nn.setStreamName("detections")
-        detection_nn.out.link(xout_nn.input)
+        # Depth Output  
+        if config.DEPTH_ENABLED:
+            xout_depth = pipeline.create(dai.node.XLinkOut)
+            xout_depth.setStreamName("depth")
+            stereo.depth.link(xout_depth.input)
         
         return pipeline
-    
-    def _get_model_path(self) -> str:
-        """
-        Gibt Pfad zum Face Detection Modell zurück
-        Fallback auf MobileNet-SSD wenn Face Model nicht verfügbar
-        """
-        # Hinweis: Hier müsste ein vortrainiertes Modell eingebunden werden
-        # Für Production sollte man ein .blob Modell verwenden
-        # Placeholder - in Realität müsste hier ein echtes Modell-Blob geladen werden
-        return str(dai.OpenVINO.Blob(dai.OpenVINO.Blob.Config()))
     
     def open(self) -> bool:
         """
@@ -163,8 +141,9 @@ class OAKDCameraManager:
             
             # Output Queues
             self.rgb_queue = self.device.getOutputQueue(name="rgb", maxSize=4, blocking=False)
-            self.depth_queue = self.device.getOutputQueue(name="depth", maxSize=4, blocking=False)
-            self.detection_queue = self.device.getOutputQueue(name="detections", maxSize=4, blocking=False)
+            
+            if config.DEPTH_ENABLED:
+                self.depth_queue = self.device.getOutputQueue(name="depth", maxSize=4, blocking=False)
             
             # Frame Dimensionen ermitteln
             in_rgb = self.rgb_queue.get()
@@ -176,6 +155,7 @@ class OAKDCameraManager:
             
         except Exception as e:
             print(f"❌ OAK-D Lite Fehler: {e}")
+            traceback.print_exc()
             return False
     
     def read_frame(self) -> Tuple[bool, Optional[np.ndarray]]:
@@ -229,47 +209,14 @@ class OAKDCameraManager:
         """
         Holt Spatial Detections (Personen mit 3D-Koordinaten)
         
+        HINWEIS: Aktuell nicht verwendet, da kein NN-Modell geladen.
+        Face Detection erfolgt via OpenCV im Hauptprogramm.
+        
         Returns:
-            Liste von SpatialDetection Objekten
+            Leere Liste (keine On-Device AI Detection)
         """
-        if self.detection_queue is None:
-            return []
-        
-        detections = []
-        
-        try:
-            in_det = self.detection_queue.tryGet()
-            if in_det is None:
-                return []
-            
-            for detection in in_det.detections:
-                # Bounding Box in Pixel-Koordinaten
-                bbox = self._normalize_bbox(
-                    detection.xmin, detection.ymin,
-                    detection.xmax, detection.ymax
-                )
-                
-                # Spatial Koordinaten (X, Y, Z in Metern)
-                spatial_coords = (
-                    detection.spatialCoordinates.x / 1000.0,  # mm zu m
-                    detection.spatialCoordinates.y / 1000.0,
-                    detection.spatialCoordinates.z / 1000.0
-                )
-                
-                # Distance Filter
-                distance = spatial_coords[2]
-                if (config.TRACKING_MIN_DISTANCE <= distance <= config.TRACKING_MAX_DISTANCE):
-                    detections.append(SpatialDetection(
-                        bbox=bbox,
-                        spatial_coords=spatial_coords,
-                        confidence=detection.confidence
-                    ))
-            
-            return detections
-            
-        except Exception as e:
-            print(f"⚠️  Detection Fehler: {e}")
-            return []
+        # Keine On-Device Detection - wird extern mit OpenCV gemacht
+        return []
     
     def _normalize_bbox(self, xmin: float, ymin: float, 
                        xmax: float, ymax: float) -> Tuple[int, int, int, int]:
