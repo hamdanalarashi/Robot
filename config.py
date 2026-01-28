@@ -4,10 +4,10 @@
 Konfiguration für Camera-basierte Sprechererkennung
 """
 
-# Kamera Einstellungen
-CAMERA_INDEX = 0  # 0 = Standard Webcam (MacBook integriert)
-CAMERA_FOV_HORIZONTAL = 70  # Field of View in Grad (Standard MacBook Webcam ~70°)
-CAMERA_DIRECTION = 0  # Kamera-Richtung (0° = Nord, wird ggf. kalibriert)
+# Kamera-Konfiguration
+CAMERA_INDEX = 0  # Standard Webcam (OAK-D deaktiviert)
+CAMERA_FOV_HORIZONTAL = 70  # Horizontales Sichtfeld in Grad
+CAMERA_DIRECTION = 0  # Kamera-Ausrichtung in Grad (0 = nach vorne)d, wird ggf. kalibriert)
 
 # ReSpeaker Einstellungen
 RESPEAKER_VENDOR_ID = 0x2886
@@ -31,8 +31,9 @@ VIDEO_HEIGHT = 480
 FPS_TARGET = 30
 
 # === OAK-D Lite Einstellungen ===
-# Jetzt mit korrekter DepthAI 3.3.0 API!
-USE_OAK_D = True  # OAK-D Lite aktiviert
+# DEAKTIVIERT: DepthAI 3.3.0 API ist inkompatibel und hat fehlende Nodes (XLinkOut)
+# System nutzt Standard-Webcam + OpenCV Face Detection
+USE_OAK_D = False  # OAK-D Lite DEAKTIVIERT
 OAK_D_RESOLUTION = "1080p"  # "1080p", "4K", "720p"
 OAK_D_FPS = 30  # Target FPS
 
